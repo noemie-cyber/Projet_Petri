@@ -1,2 +1,4 @@
-# Projet_Petri
-Editeur et analyseur de réseaux de Petri sur Python
+## Éditeur de Réseaux de Petri
+
+Projet de théorie des graphes.
+
