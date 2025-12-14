@@ -22,7 +22,7 @@ def main():
 
     print("\n Fichiers générés : result.json, graph.dot")
 
-    # Optionnel : générer graph.png si graphviz est installé
+    # Générer graph.png si graphviz est installé
     try:
         import subprocess
         subprocess.run(["dot", "-Tpng", "graph.dot", "-o", "graph.png"], check=True)

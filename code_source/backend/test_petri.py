@@ -1,5 +1,5 @@
 """
-Tests unitaires pour le modèle de réseau de Petri (backend).
+Tests pour le modèle de réseau de Petri (backend).
 
 Vérifie que :
 - les places ne peuvent pas avoir un nombre négatif de jetons,

@@ -4,11 +4,11 @@ Modèle et moteur de réseau de Petri.
 Contient :
 - les classes Place, Transition et Arc (définition d'un réseau de Petri),
 - la classe PetriNet qui :
-  * stocke les places, transitions et arcs,
-  * vérifie la cohérence du réseau (types d'arcs, IDs uniques),
-  * calcule les tirages possibles et le graphe d'accessibilité (reachability),
-  * fournit des fonctions d'analyse (deadlocks, transitions mortes, etc.),
-  * permet l'import/export du réseau et du graphe d'accessibilité (dict JSON, format DOT).
+  - stocke les places, transitions et arcs,
+  - vérifie la cohérence du réseau (types d'arcs, IDs uniques),
+  - calcule les tirages possibles et le graphe d'accessibilité (reachability),
+  - fournit des fonctions d'analyse (deadlocks, transitions mortes, etc.),
+  - permet l'import/export du réseau et du graphe d'accessibilité (dict JSON, format DOT).
 
 Ce fichier est indépendant de l'interface graphique. Il peut être utilisé en ligne de commande
 ou par le frontend pour analyser un réseau créé par l'utilisateur.
@@ -167,7 +167,7 @@ class PetriNet:
 
     # Utilitaires reachability
 
-    #Ordre fixe des places (utilisé pour coder les marquages en tuples).
+    #Ordre fixe des places.
     def place_order(self) -> List[str]:
         return sorted(self.places.keys())
 
@@ -243,19 +243,19 @@ class PetriNet:
 
     # Analyse 
     """
-        Résumé d'analyse du graphe d'accessibilité :
-        - nombre d'états et d'arêtes,
-        - listes des deadlocks,
-        - nombre max de jetons observés par place,
-        - transitions qui ont tiré / jamais tiré.
-        """
+    Résumé d'analyse du graphe d'accessibilité :
+    - nombre d'états et d'arêtes,
+    - listes des deadlocks,
+    - nombre max de jetons observés par place,
+    - transitions qui ont tiré / jamais tiré.
+    """
 
     def analyze_reachability(self, max_states: int = 10000) -> Dict[str, object]:
         res = self.reachability_bfs(max_states=max_states)
 
-        order: List[str] = res["place_order"]  # type: ignore[assignment]
-        states: List[Dict[str, int]] = res["states"]  # type: ignore[assignment]
-        edges: List[Tuple[int, str, int]] = res["edges"]  # type: ignore[assignment]
+        order: List[str] = res["place_order"] 
+        states: List[Dict[str, int]] = res["states"] 
+        edges: List[Tuple[int, str, int]] = res["edges"] 
 
         max_tokens = {pid: 0 for pid in order}
         for m in states:
@@ -277,7 +277,7 @@ class PetriNet:
 
     def liveness_summary(self, max_states: int = 10000) -> Dict[str, object]:
         res = self.reachability_bfs(max_states=max_states)
-        edges: List[Tuple[int, str, int]] = res["edges"]  # type: ignore[assignment]
+        edges: List[Tuple[int, str, int]] = res["edges"] 
 
         fired = {tid for (_, tid, _) in edges}
         all_t = set(self.transitions.keys())
@@ -293,7 +293,7 @@ class PetriNet:
 
 
     # Export 
-    #Exporte la structure du réseau sous forme de dictionnaire JSON-sérialisable.
+    # Exporte la structure du réseau sous forme de dictionnaire JSON-sérialisable.
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -314,7 +314,7 @@ class PetriNet:
         return {
             "place_order": res["place_order"],
             "states": res["states"],
-            "edges": [{"from": f, "transition": t, "to": to} for (f, t, to) in res["edges"]],  # type: ignore[index]
+            "edges": [{"from": f, "transition": t, "to": to} for (f, t, to) in res["edges"]],
             "deadlocks": res["deadlocks"],
             "truncated": res["truncated"],
         }
@@ -323,10 +323,10 @@ class PetriNet:
     def reachability_to_dot(self, max_states: int = 10000) -> str:
         res = self.reachability_bfs(max_states=max_states)
 
-        order: List[str] = res["place_order"]  # type: ignore[assignment]
-        states: List[Dict[str, int]] = res["states"]  # type: ignore[assignment]
-        edges: List[Tuple[int, str, int]] = res["edges"]  # type: ignore[assignment]
-        deadlocks: List[int] = res["deadlocks"]  # type: ignore[assignment]
+        order: List[str] = res["place_order"] 
+        states: List[Dict[str, int]] = res["states"]
+        edges: List[Tuple[int, str, int]] = res["edges"]
+        deadlocks: List[int] = res["deadlocks"] 
 
         lines: List[str] = []
         lines.append("digraph Reachability {")
@@ -347,14 +347,10 @@ class PetriNet:
         return "\n".join(lines)
 
 
-
 #  Façade Frontend (JSON)
 
-
-"""
-Construit un objet PetriNet à partir d'un dictionnaire JSON (clé 'places','transitions', 'arcs'). 
-Sert de point d'entrée pour le frontend ou la ligne de commande.
-"""
+#Construit un objet PetriNet à partir d'un dictionnaire JSON (clé 'places','transitions', 'arcs'). 
+#Sert de point d'entrée pour le frontend ou la ligne de commande.
 def load_petri_from_dict(data: Dict[str, Any]) -> PetriNet:
     if not isinstance(data, dict):
         raise ValueError("data doit être un dict")
@@ -401,7 +397,7 @@ def load_petri_from_dict(data: Dict[str, Any]) -> PetriNet:
 
 
 """
-Point d'entrée haut niveau :
+Point d'entrée :
 - charge le réseau à partir d'un dict,
 - effectue l'analyse de reachability,
 - renvoie à la fois le réseau, l'analyse, le graphe d'états (dict) et le DOT.

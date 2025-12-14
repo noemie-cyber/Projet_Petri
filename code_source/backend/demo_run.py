@@ -1,5 +1,5 @@
 """
-Exemple minimal d'utilisation du backend de réseau de Petri.
+Exemple d'utilisation du backend de réseau de Petri.
 
 - construit un petit réseau en dur (2 places, 1 transition, 2 arcs),
 - appelle la fonction d'analyse,
