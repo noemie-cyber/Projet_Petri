@@ -1,0 +1,101 @@
+{
+  "network": {
+    "places": [
+      {
+        "id": "P1",
+        "name": "P1",
+        "initial_tokens": 5
+      },
+      {
+        "id": "P2",
+        "name": "P2",
+        "initial_tokens": 6
+      }
+    ],
+    "transitions": [
+      {
+        "id": "T1",
+        "name": "T1"
+      }
+    ],
+    "arcs": [
+      {
+        "source_id": "P1",
+        "target_id": "T1",
+        "weight": 1
+      },
+      {
+        "source_id": "T1",
+        "target_id": "P2",
+        "weight": 1
+      },
+      {
+        "source_id": "P1",
+        "target_id": "T1",
+        "weight": 1
+      }
+    ]
+  },
+  "analysis": {
+    "truncated": false,
+    "num_states": 4,
+    "num_edges": 3,
+    "deadlocks": [
+      3
+    ],
+    "max_tokens": {
+      "P1": 5,
+      "P2": 9
+    },
+    "fired_transitions": [
+      "T1"
+    ],
+    "never_fired_transitions": []
+  },
+  "reachability": {
+    "place_order": [
+      "P1",
+      "P2"
+    ],
+    "states": [
+      {
+        "P1": 5,
+        "P2": 6
+      },
+      {
+        "P1": 3,
+        "P2": 7
+      },
+      {
+        "P1": 1,
+        "P2": 8
+      },
+      {
+        "P1": -1,
+        "P2": 9
+      }
+    ],
+    "edges": [
+      {
+        "from": 0,
+        "transition": "T1",
+        "to": 1
+      },
+      {
+        "from": 1,
+        "transition": "T1",
+        "to": 2
+      },
+      {
+        "from": 2,
+        "transition": "T1",
+        "to": 3
+      }
+    ],
+    "deadlocks": [
+      3
+    ],
+    "truncated": false
+  },
+  "dot": "digraph Reachability {\n  rankdir=LR;\n  S0 [label=\"P1=5\\nP2=6\", shape=circle];\n  S1 [label=\"P1=3\\nP2=7\", shape=circle];\n  S2 [label=\"P1=1\\nP2=8\", shape=circle];\n  S3 [label=\"P1=-1\\nP2=9\", shape=doublecircle];\n  S0 -> S1 [label=\"T1\"];\n  S1 -> S2 [label=\"T1\"];\n  S2 -> S3 [label=\"T1\"];\n}"
+}

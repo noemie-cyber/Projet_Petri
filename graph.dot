@@ -1,0 +1,10 @@
+digraph Reachability {
+  rankdir=LR;
+  S0 [label="P1=5\nP2=6", shape=circle];
+  S1 [label="P1=3\nP2=7", shape=circle];
+  S2 [label="P1=1\nP2=8", shape=circle];
+  S3 [label="P1=-1\nP2=9", shape=doublecircle];
+  S0 -> S1 [label="T1"];
+  S1 -> S2 [label="T1"];
+  S2 -> S3 [label="T1"];
+}

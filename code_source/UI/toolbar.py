@@ -19,6 +19,7 @@ class ToolBar(tk.Frame):
         tk.Button(self, text="Transition", command=lambda: self.tool.set("transition")).pack()
         tk.Button(self, text="Arc", command=lambda: self.tool.set("arc")).pack()
         tk.Button(self, text="Gomme", command=lambda: self.tool.set("eraser")).pack()
+        tk.Button(self, text="Tir", command=lambda: self.tool.set("fire")).pack()
 
         self.analyser_callback = None
         tk.Button(self, text="Analyser", command=self._on_analyser).pack()

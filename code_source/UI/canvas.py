@@ -27,6 +27,9 @@ class PetriCanvas(tk.Canvas):
 
         # Lien entre l'ID graphique tkinter et l'ID logique (P1, T1, etc.)
         self.item_to_id = {}
+        
+        self.current_marking = {}      # place_id -> nb de jetons
+        self.place_token_text = {}     # place_id -> id de l'objet texte
 
         self.bind("<Button-1>", self.on_click)
         
@@ -52,6 +55,9 @@ class PetriCanvas(tk.Canvas):
         elif tool == "eraser":
             self.erase(event.x, event.y)
 
+        elif tool == "fire":
+            self.fire_transition_at(event.x, event.y)
+
     def create_place(self, x, y):
         tokens = simpledialog.askinteger(
             "Création Place", "Nombre de jetons :", minvalue=0
@@ -73,6 +79,10 @@ class PetriCanvas(tk.Canvas):
 
         # On mémorise quel ID logique correspond à cet élément graphique
         self.item_to_id[place_item] = place_id
+        
+
+        self.place_token_text[place_id] = text_item
+        self.current_marking[place_id] = tokens
 
     def create_transition(self, x, y):
          # Génération d'un ID de transition unique (T1, T2, ...)
@@ -85,8 +95,42 @@ class PetriCanvas(tk.Canvas):
 
         trans_item = self.create_rectangle(x-5, y-25, x+5, y+25, fill="black")
 
-        # Mémorisation du lien graphique -> logique
+        # Mémorisation du lien graphique == logique
         self.item_to_id[trans_item] = trans_id
+
+    def update_marking(self, new_marking):
+        # Met à jour le marquage courant et les nombres affichés.
+        self.current_marking = new_marking
+        for place_id, tokens in new_marking.items():
+            text_item = self.place_token_text.get(place_id)
+            if text_item is not None:
+                self.itemconfig(text_item, text=str(tokens))
+
+    def fire_transition_at(self, x, y):
+        # On récupère l'item le plus proche du clic
+        items = self.find_closest(x, y)
+        if not items:
+            return
+        item = items[0]
+
+        # On regarde si c'est une transition connue du backend
+        trans_id = self.item_to_id.get(item)
+        if trans_id is None:
+            return
+
+        # On travaille sur une copie du marquage courant
+        marking = dict(self.current_marking)
+
+        # Si la transition n'est pas franchissable, on ne fait rien
+        if not self.model.enabled(trans_id, marking):
+            print(f"Transition {trans_id} non franchissable pour ce marquage")
+            return
+
+        # Tir de la transition dans le backend
+        new_marking = self.model.fire(trans_id, marking)
+
+        # Mise à jour de l'affichage (nombres dans les places)
+        self.update_marking(new_marking)
 
     def handle_arc(self, x, y):
         items = self.find_closest(x, y)
