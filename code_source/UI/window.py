@@ -7,7 +7,6 @@ Fenêtre principale de l'application.
 """
 
 import tkinter as tk
-from tkinter import messagebox
 from UI.canvas import PetriCanvas
 from UI.toolbar import ToolBar
 
@@ -33,23 +32,13 @@ class MainWindow:
     def run(self):
         self.root.mainloop()
 
-    # Création du graphe d'accessibilité et analyse
     def analyser_reseau(self):
-        import json, subprocess
         data = self.model.to_dict()
 
-        try:
-            result = analyze_from_dict(data, max_states=1000)
-        except ValueError as e:
-            # Réseau incohérent : on affiche un message et on ne génère aucun fichier
-            messagebox.showerror(
-                "Erreur réseau de Petri",
-                f"Le réseau est incohérent :\n{e}"
-            )
-            print("Analyse annulée (réseau incohérent) :", e)
-            return
+        result = analyze_from_dict(data, max_states=1000)
 
-        # Si tout va bien, on génère les fichiers comme avant
+        import json, subprocess
+
         with open("result.json", "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
 
@@ -60,6 +49,6 @@ class MainWindow:
 
         try:
             subprocess.run(["dot", "-Tpng", "graph.dot", "-o", "graph.png"], check=True)
-            print("Image du graph d'état générée : graph.png")
+            print("Image synthétique générée : graph.png")
         except Exception:
             print("Impossible de générer graph.png automatiquement (Graphviz non dispo ou 'dot' pas dans le PATH).")
