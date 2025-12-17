@@ -9,7 +9,7 @@
       {
         "id": "P2",
         "name": "P2",
-        "initial_tokens": 6
+        "initial_tokens": 2
       }
     ],
     "transitions": [
@@ -28,24 +28,19 @@
         "source_id": "T1",
         "target_id": "P2",
         "weight": 1
-      },
-      {
-        "source_id": "P1",
-        "target_id": "T1",
-        "weight": 1
       }
     ]
   },
   "analysis": {
     "truncated": false,
-    "num_states": 4,
-    "num_edges": 3,
+    "num_states": 6,
+    "num_edges": 5,
     "deadlocks": [
-      3
+      5
     ],
     "max_tokens": {
       "P1": 5,
-      "P2": 9
+      "P2": 7
     },
     "fired_transitions": [
       "T1"
@@ -60,19 +55,27 @@
     "states": [
       {
         "P1": 5,
-        "P2": 6
+        "P2": 2
+      },
+      {
+        "P1": 4,
+        "P2": 3
       },
       {
         "P1": 3,
-        "P2": 7
+        "P2": 4
+      },
+      {
+        "P1": 2,
+        "P2": 5
       },
       {
         "P1": 1,
-        "P2": 8
+        "P2": 6
       },
       {
-        "P1": -1,
-        "P2": 9
+        "P1": 0,
+        "P2": 7
       }
     ],
     "edges": [
@@ -90,12 +93,22 @@
         "from": 2,
         "transition": "T1",
         "to": 3
+      },
+      {
+        "from": 3,
+        "transition": "T1",
+        "to": 4
+      },
+      {
+        "from": 4,
+        "transition": "T1",
+        "to": 5
       }
     ],
     "deadlocks": [
-      3
+      5
     ],
     "truncated": false
   },
-  "dot": "digraph Reachability {\n  rankdir=LR;\n  S0 [label=\"P1=5\\nP2=6\", shape=circle];\n  S1 [label=\"P1=3\\nP2=7\", shape=circle];\n  S2 [label=\"P1=1\\nP2=8\", shape=circle];\n  S3 [label=\"P1=-1\\nP2=9\", shape=doublecircle];\n  S0 -> S1 [label=\"T1\"];\n  S1 -> S2 [label=\"T1\"];\n  S2 -> S3 [label=\"T1\"];\n}"
+  "dot": "digraph Reachability {\n  rankdir=LR;\n  S0 [label=\"P1=5\\nP2=2\", shape=circle];\n  S1 [label=\"P1=4\\nP2=3\", shape=circle];\n  S2 [label=\"P1=3\\nP2=4\", shape=circle];\n  S3 [label=\"P1=2\\nP2=5\", shape=circle];\n  S4 [label=\"P1=1\\nP2=6\", shape=circle];\n  S5 [label=\"P1=0\\nP2=7\", shape=doublecircle];\n  S0 -> S1 [label=\"T1\"];\n  S1 -> S2 [label=\"T1\"];\n  S2 -> S3 [label=\"T1\"];\n  S3 -> S4 [label=\"T1\"];\n  S4 -> S5 [label=\"T1\"];\n}"
 }

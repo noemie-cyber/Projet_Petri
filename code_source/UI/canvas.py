@@ -11,11 +11,44 @@ Pour l'instant :
 
 import tkinter as tk
 from tkinter import simpledialog
+import os
 from backend.petri import Place, Transition, Arc  # pour créer les objets backend
+
 
 class PetriCanvas(tk.Canvas):
     def __init__(self, master, model):
         super().__init__(master, width=800, height=600, bg="white")
+
+        # Images possibles pour les places (anneaux de couleur)
+        script_dir = os.path.dirname(__file__)
+        self.place_images = []
+        for filename in [
+            "pl_vert.png",
+            "pl_jaune.png",
+            "pl_rouge.png",
+            "pl_marron.png",
+            "pl_orange.png",
+            "pl_bleu.png",
+            "pl_violet.png",
+        ]:
+            path = os.path.join(script_dir, filename)
+            self.place_images.append(tk.PhotoImage(file=path))
+
+        self.next_place_img_index = 0
+
+
+        # Image de fond façon billard (réduite)
+        base_image = tk.PhotoImage(file="code_source/UI/FondBillard.png")
+        # Réduction de l'image ( on elargie puis on divise pour avoir un ration de 1.5)
+        #enlarged = base_image.zoom(3, 3)
+        #self.bg_image = enlarged.subsample(2, 2)
+
+        # Taille fixe ( ce qu'on utilise actuellement)
+        self.bg_image = tk.PhotoImage(file="code_source/UI/FondBillard.png")
+
+        self.bg_item = self.create_image(0, 0, image=self.bg_image, anchor="nw", tags=("background",))
+
+
 
         self.model = model  # référence vers le PetriNet du backend
         self.tool_var = None
@@ -32,6 +65,11 @@ class PetriCanvas(tk.Canvas):
         self.place_token_text = {}     # place_id -> id de l'objet texte
         # Inverse : ID logique -> items graphiques
         self.id_to_items = {}
+
+        # État pour la simulation continue
+        self.simulating = False      # True si le mode auto est en cours
+        self.sim_delay = 500         # délai en ms entre deux tirs
+
 
         self.bind("<Button-1>", self.on_click)
         
@@ -59,6 +97,14 @@ class PetriCanvas(tk.Canvas):
 
         elif tool == "fire":
             self.fire_transition_at(event.x, event.y)
+
+
+    def _format_tokens(self, n):
+        if n <= 5:
+            return "●" * n
+        return str(n)
+
+
 
     def create_place(self, x, y):
         tokens = simpledialog.askinteger(
@@ -89,13 +135,18 @@ class PetriCanvas(tk.Canvas):
         place_obj = Place(id=place_id, name=place_id, initial_tokens=tokens)
         self.model.add_place(place_obj)
 
-        r = 20
-        place_item = self.create_oval(x-r, y-r, x+r, y+r, fill="white", outline="black")
-        # Nom de la place au-dessus du cercle
+        r = 20  # position du texte
+        # Image de la place (anneau de couleur), centrée en (x, y)
+        img = self.place_images[self.next_place_img_index]
+        self.next_place_img_index = (self.next_place_img_index + 1) % len(self.place_images)
+        place_item = self.create_image(x, y, image=img)
+
+        # Nom de la place au-dessus de l'image
         name_item = self.create_text(x, y - r - 10, text=place_id)
 
+
         # Nombre de jetons au centre du cercle
-        tokens_item = self.create_text(x, y, text=str(tokens))
+        tokens_item = self.create_text(x, y, text=self._format_tokens(tokens))
 
         # On mémorise quel ID logique correspond à cet élément graphique
         self.item_to_id[place_item] = place_id
@@ -108,7 +159,8 @@ class PetriCanvas(tk.Canvas):
         self.id_to_items[place_id] = {place_item, name_item, tokens_item}
 
     def create_transition(self, x, y):
-        
+
+        # Recalcule le prochain numéro de transition à partir des IDs existants
         if self.model.transitions:
             nums = []
             for tid in self.model.transitions.keys():
@@ -121,8 +173,7 @@ class PetriCanvas(tk.Canvas):
         else:
             self.transition_count = 0
 
-        
-         # Génération d'un ID de transition unique (T1, T2, ...)
+        # Génération d'un ID de transition unique (T1, T2, ...)
         self.transition_count += 1
         trans_id = f"T{self.transition_count}"
 
@@ -130,6 +181,7 @@ class PetriCanvas(tk.Canvas):
         trans_obj = Transition(id=trans_id, name=trans_id)
         self.model.add_transition(trans_obj)
 
+        # Dessin graphique
         trans_item = self.create_rectangle(x-5, y-25, x+5, y+25, fill="black")
         text_item = self.create_text(x, y-35, text=trans_id)  # texte au-dessus
 
@@ -138,13 +190,14 @@ class PetriCanvas(tk.Canvas):
         self.item_to_id[text_item] = trans_id
         self.id_to_items[trans_id] = {trans_item, text_item}
 
+
     def update_marking(self, new_marking):
         # Met à jour le marquage courant et les nombres affichés.
         self.current_marking = new_marking
         for place_id, tokens in new_marking.items():
             text_item = self.place_token_text.get(place_id)
             if text_item is not None:
-                self.itemconfig(text_item, text=str(tokens))
+                self.itemconfig(text_item, text=self._format_tokens(tokens))
 
     def fire_transition_at(self, x, y):
         # On récupère l'item le plus proche du clic
@@ -172,61 +225,177 @@ class PetriCanvas(tk.Canvas):
         # Mise à jour de l'affichage (nombres dans les places)
         self.update_marking(new_marking)
 
+
+    def start_auto_simulation(self):
+        """Active/désactive le mode simulation continue."""
+        # Toggle : si déjà en cours, on arrête
+        if self.simulating:
+            self.simulating = False
+        else:
+            self.simulating = True
+            self.auto_step()   # lance la première étape
+
+    def auto_step(self):
+        """Effectue un tir automatique puis planifie le suivant."""
+        if not self.simulating:
+            return
+
+        # On travaille sur une copie du marquage courant
+        marking = dict(self.current_marking)
+
+        # Liste des transitions franchissables dans ce marquage
+        enabled_transitions = [
+            t_id for t_id in self.model.transitions.keys()
+            if self.model.enabled(t_id, marking)
+        ]
+
+        if not enabled_transitions:
+            # Plus aucune transition possible : on arrête la simulation
+            print("Simulation auto : aucune transition franchissable, arrêt.")
+            self.simulating = False
+            return
+
+        # Choix simple : on tire la première transition franchissable
+        trans_id = enabled_transitions[0]
+        print(f"Simulation auto : tir de {trans_id}")
+
+        # Tir dans le backend
+        new_marking = self.model.fire(trans_id, marking)
+
+        # Mise à jour de l'affichage
+        self.update_marking(new_marking)
+
+        # On planifie l'étape suivante après sim_delay ms
+        self.after(self.sim_delay, self.auto_step)
+
+
+
     def handle_arc(self, x, y):
         items = self.find_closest(x, y)
-
         if not items:
             return
-        item = items[0]
+        clicked_item = items[0]
 
-        if self.arc_start is None:
-            self.arc_start = item
-        else:
-            src_id = self.item_to_id.get(self.arc_start)
-            tgt_id = self.item_to_id.get(item)
-
-            # Empêcher les doublons simples (même source, même cible)
-            for a in self.model.arcs:
-                if a.source_id == src_id and a.target_id == tgt_id:
-                    print("Arc doublon ignoré entre", src_id, "et", tgt_id)
-                    self.arc_start = None
-                    return
-
-            if src_id is None or tgt_id is None:
-                # Si on ne connaît pas les IDs, on annule simplement
-                self.arc_start = None
-                return
-            
-            try:
-                arc_obj = Arc(source_id=src_id, target_id=tgt_id, weight=1)
-                self.model.add_arc(arc_obj)
-            except ValueError as e:
-                # Arc non valide
-                print("Arc refusé :", e)
-                self.arc_start = None
-                return
-
-            # Si tout est ok côté backend, alors on dessine la ligne
-            x1, y1, x2, y2 = self.coords(self.arc_start)
-            self.create_line((x1 + x2) / 2, (y1 + y2) / 2, x, y, arrow=tk.LAST)
-
+        # On récupère l'ID logique (place_id ou trans_id) associé à l'item cliqué
+        logical_id = self.item_to_id.get(clicked_item)
+        if logical_id is None:
+            # On ne sait pas à quoi correspond cet item, on annule
             self.arc_start = None
+            return
+
+        # Si c'est le premier clic, on mémorise simplement la source logique
+        if self.arc_start is None:
+            self.arc_start = logical_id
+            return
+
+        # Deuxième clic : on a déjà une source logique, on récupère la cible logique
+        src_id = self.arc_start
+        tgt_id = logical_id
+
+        # Empêcher les doublons simples (même source, même cible)
+        for a in self.model.arcs:
+            if a.source_id == src_id and a.target_id == tgt_id:
+                print("Arc doublon ignoré entre", src_id, "et", tgt_id)
+                self.arc_start = None
+                return
+
+        # Vérif de validité des IDs
+        if src_id is None or tgt_id is None:
+            self.arc_start = None
+            return
+
+        # Création de l'arc dans le backend
+        try:
+            arc_obj = Arc(source_id=src_id, target_id=tgt_id, weight=1)
+            self.model.add_arc(arc_obj)
+        except ValueError as e:
+            print("Arc refusé :", e)
+            self.arc_start = None
+            return
+
+                # Dessin graphique : on relie les centres des formes principales
+        src_items = self.id_to_items.get(src_id, set())
+        tgt_items = self.id_to_items.get(tgt_id, set())
+
+        if not src_items or not tgt_items:
+            self.arc_start = None
+            return
+
+        def pick_main_item(items):
+            # On choisit en priorité ovales et rectangles, sinon n'importe quoi
+            for it in items:
+                t = self.type(it)
+                if t in ("oval", "rectangle"):
+                    return it
+            return next(iter(items))
+
+        src_item = pick_main_item(src_items)
+        tgt_item = pick_main_item(tgt_items)
+
+        src_coords = self.coords(src_item)
+        tgt_coords = self.coords(tgt_item)
+
+        # src_coords / tgt_coords peuvent être (x, y) ou (x1, y1, x2, y2)
+        if len(src_coords) == 2:
+            sx, sy = src_coords
+        else:
+            x1, y1, x2, y2 = src_coords
+            sx = (x1 + x2) / 2
+            sy = (y1 + y2) / 2
+
+        if len(tgt_coords) == 2:
+            tx, ty = tgt_coords
+        else:
+            x1, y1, x2, y2 = tgt_coords
+            tx = (x1 + x2) / 2
+            ty = (y1 + y2) / 2
+
+        self.create_line(sx, sy, tx, ty, arrow=tk.LAST)
+
+        # On réinitialise pour le prochain arc
+        self.arc_start = None
+
 
         
-
     def erase(self, x, y):
         items = self.find_closest(x, y)
-
         if not items:
             return
         item = items[0]
 
-        logical_id = self.item_to_id.get(item)
-        if logical_id is None:
-            # Si l'item n'a pas d'ID (arc), on efface juste la ligne
-            self.delete(item)
+        # Ne jamais supprimer l'image de fond
+        if item == self.bg_item or "background" in self.gettags(item):
             return
-        
+
+
+        logical_id = self.item_to_id.get(item)
+
+        # CAS 1 : on clique sur une ligne d'arc (pas d'ID logique enregistré)
+        if logical_id is None:
+            # On supprime l'item graphique
+            coords = self.coords(item)
+            self.delete(item)
+
+            # Si on a bien une ligne (4 coordonnées), on retrouve les nœuds aux extrémités
+            if len(coords) == 4:
+                x1, y1, x2, y2 = coords
+
+                start_items = self.find_closest(x1, y1)
+                end_items = self.find_closest(x2, y2)
+
+                if start_items and end_items:
+                    start_id = self.item_to_id.get(start_items[0])
+                    end_id = self.item_to_id.get(end_items[0])
+
+                    if start_id is not None and end_id is not None:
+                        # On enlève du backend tous les arcs qui relient exactement ces deux IDs
+                        self.model.arcs = [
+                            a for a in self.model.arcs
+                            if not (a.source_id == start_id and a.target_id == end_id)
+                        ]
+            return
+
+        # CAS 2 : on clique sur une place ou une transition (avec ID logique)
         if logical_id in self.model.places:
             # supprimer la place et tous les arcs incidents
             del self.model.places[logical_id]
@@ -252,3 +421,33 @@ class PetriCanvas(tk.Canvas):
         # On nettoie les maps
         if logical_id in self.id_to_items:
             del self.id_to_items[logical_id]
+
+    def clear_all(self):
+        """Efface complètement le réseau (graphique + backend)."""
+        
+        # 1) Effacer tout sauf le fond
+        for item in self.find_all():
+            if item == self.bg_item or "background" in self.gettags(item):
+                continue
+            self.delete(item)
+
+
+        # 2) Réinitialiser l'état graphique interne
+        self.item_to_id = {}
+        self.id_to_items = {}
+        self.place_token_text = {}
+        self.current_marking = {}
+        self.arc_start = None
+
+        # 3) Réinitialiser les compteurs
+        self.place_count = 0
+        self.transition_count = 0
+
+        # 4) Réinitialiser le backend (PetriNet)
+        self.model.places.clear()
+        self.model.transitions.clear()
+        self.model.arcs.clear()
+
+        # 5) Arrêter une éventuelle simulation auto
+        self.simulating = False
+
