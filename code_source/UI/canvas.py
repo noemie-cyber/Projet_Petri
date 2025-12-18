@@ -66,12 +66,22 @@ class PetriCanvas(tk.Canvas):
         # Inverse : ID logique -> items graphiques
         self.id_to_items = {}
 
+        self.arc_items = {}       # id de la ligne
+        self.arc_text_items = {}  # id du texte du poids
+                
+        self.transition_rects = {}   # item rectangle
+
+
+
         # État pour la simulation continue
         self.simulating = False      # True si le mode auto est en cours
         self.sim_delay = 500         # délai en ms entre deux tirs
 
 
         self.bind("<Button-1>", self.on_click)
+
+        self.tag_bind("arc", "<Double-Button-1>", self.on_arc_double_click)
+
         
 
     def set_tool_var(self, tool_var):
@@ -184,11 +194,18 @@ class PetriCanvas(tk.Canvas):
         # Dessin graphique
         trans_item = self.create_rectangle(x-5, y-25, x+5, y+25, fill="black")
         text_item = self.create_text(x, y-35, text=trans_id)  # texte au-dessus
+        
 
         # Mémorisation du lien graphique == logique
         self.item_to_id[trans_item] = trans_id
         self.item_to_id[text_item] = trans_id
         self.id_to_items[trans_id] = {trans_item, text_item}
+        
+        # mémoriser le rectangle pour pouvoir changer sa couleur
+        self.transition_rects[trans_id] = trans_item
+
+        # mettre à jour les couleurs en fonction du marquage courant
+        self.update_transition_colors()
 
 
     def update_marking(self, new_marking):
@@ -198,6 +215,33 @@ class PetriCanvas(tk.Canvas):
             text_item = self.place_token_text.get(place_id)
             if text_item is not None:
                 self.itemconfig(text_item, text=self._format_tokens(tokens))
+            
+        self.update_transition_colors()
+
+
+
+    def update_transition_colors(self):
+        marking = dict(self.current_marking)
+
+        # on calcule pre une fois
+        pre, _ = self.model.build_pre_post()
+
+        for t_id, rect_id in self.transition_rects.items():
+            arcs_entree = pre.get(t_id, [])
+
+            # si la transition n'a aucun arc d'entrée, on la laisse en noir
+            if not arcs_entree:
+                self.itemconfig(rect_id, fill="black")
+                continue
+
+            try:
+                if self.model.enabled(t_id, marking):
+                    self.itemconfig(rect_id, fill="green")
+                else:
+                    self.itemconfig(rect_id, fill="red")
+            except Exception:
+                self.itemconfig(rect_id, fill="black")
+
 
     def fire_transition_at(self, x, y):
         # On récupère l'item le plus proche du clic
@@ -313,7 +357,7 @@ class PetriCanvas(tk.Canvas):
             self.arc_start = None
             return
 
-                # Dessin graphique : on relie les centres des formes principales
+        # Dessin graphique : on relie les centres des formes principales
         src_items = self.id_to_items.get(src_id, set())
         tgt_items = self.id_to_items.get(tgt_id, set())
 
@@ -350,10 +394,43 @@ class PetriCanvas(tk.Canvas):
             tx = (x1 + x2) / 2
             ty = (y1 + y2) / 2
 
-        self.create_line(sx, sy, tx, ty, arrow=tk.LAST)
+        import math
+
+        dx = tx - sx
+        dy = ty - sy
+        dist = math.hypot(dx, dy)
+        if dist == 0:
+            self.arc_start = None
+            return
+
+        ux = dx / dist
+        uy = dy / dist
+
+        PLACE_RADIUS = 20
+        TRANS_HALF_WIDTH = 5
+
+        def adjust_endpoint(x, y, node_id, direction):
+            if node_id in self.model.places:
+                r = PLACE_RADIUS
+            else:
+                r = TRANS_HALF_WIDTH
+            return x + direction * ux * r, y + direction * uy * r
+
+        sx2, sy2 = adjust_endpoint(sx, sy, src_id, +1)
+        tx2, ty2 = adjust_endpoint(tx, ty, tgt_id, -1)
+
+        line_id = self.create_line(sx2, sy2, tx2, ty2, arrow=tk.LAST, tags=("arc",))
+        self.arc_items[(src_id, tgt_id)] = line_id
+
+        if arc_obj.weight != 1:
+            mx = (sx2 + tx2) / 2
+            my = (sy2 + ty2) / 2
+            text_id = self.create_text(mx, my - 10, text=str(arc_obj.weight), fill="white")
+            self.arc_text_items[(src_id, tgt_id)] = text_id
 
         # On réinitialise pour le prochain arc
         self.arc_start = None
+
 
 
         
@@ -422,9 +499,76 @@ class PetriCanvas(tk.Canvas):
         if logical_id in self.id_to_items:
             del self.id_to_items[logical_id]
 
+
+
+    def on_arc_double_click(self, event):
+        item = self.find_withtag("current")
+        if not item:
+            return
+        line_id = item[0]
+
+        # retrouver src_id, tgt_id correspondant à cette ligne
+        src_tgt = None
+        for key, lid in self.arc_items.items():
+            if lid == line_id:
+                src_tgt = key
+                break
+        if src_tgt is None:
+            return
+
+        src_id, tgt_id = src_tgt
+
+        # retrouver l'objet Arc du backend
+        arc_obj = None
+        for a in self.model.arcs:
+            if a.source_id == src_id and a.target_id == tgt_id:
+                arc_obj = a
+                break
+        if arc_obj is None:
+            return
+
+        # demander le nouveau poids
+        new_w = simpledialog.askinteger(
+            "Poids de l'arc",
+            f"Nouveau poids pour {src_id} -> {tgt_id} :",
+            minvalue=1,
+        )
+        if new_w is None:
+            return
+
+        arc_obj.weight = new_w
+
+        # mettre à jour le texte
+        # recalculer la position milieu de la ligne
+        x1, y1, x2, y2 = self.coords(line_id)
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+
+        # supprimer l'ancien texte s'il existe
+        key = (src_id, tgt_id)
+        old_text_id = self.arc_text_items.get(key)
+        if old_text_id is not None:
+            self.delete(old_text_id)
+
+        # ne rien afficher si poids == 1
+        if new_w != 1:
+            text_id = self.create_text(mx, my - 10, text=str(new_w), fill="white")
+            self.arc_text_items[key] = text_id
+        else:
+            if key in self.arc_text_items:
+                del self.arc_text_items[key]
+
+
+    def reset_marking(self):
+        # remet les jetons au marquage initial du backend
+        initial = self.model.initial_marking()
+        # met aussi à jour le marquage courant stocké dans le canvas
+        self.update_marking(initial)
+
+
     def clear_all(self):
         """Efface complètement le réseau (graphique + backend)."""
-        
+
         # 1) Effacer tout sauf le fond
         for item in self.find_all():
             if item == self.bg_item or "background" in self.gettags(item):

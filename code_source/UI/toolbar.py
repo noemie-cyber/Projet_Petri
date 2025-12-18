@@ -37,6 +37,7 @@ class ToolBar(tk.Frame):
         icon_fire       = load_icon("fire",       "btn_fire.png")
         icon_auto       = load_icon("auto",       "btn_auto.png")
         icon_trash      = load_icon("trash",      "btn_trash.png")
+        icon_reset      = load_icon("reset",      "btn_reset.png")
 
         btn_opts = {
             "bg": "#CCB29B",
@@ -64,6 +65,11 @@ class ToolBar(tk.Frame):
 
         tk.Button(self, image=icon_auto,
                   command=self._on_auto, **btn_opts).pack(pady=3)
+        
+        tk.Button(self, image=icon_reset,
+                  command=self._on_reset_marking, **btn_opts).pack(pady=3)
+
+
         tk.Button(self, image=icon_trash,
                   command=self._on_clear_all, **btn_opts).pack(pady=(3, 10))
 
@@ -85,6 +91,11 @@ class ToolBar(tk.Frame):
     def _on_auto(self):
         if self.canvas is not None:
             self.canvas.start_auto_simulation()
+
+    def _on_reset_marking(self):
+        if self.canvas is not None:
+            self.canvas.reset_marking()
+
 
     def _on_clear_all(self):
         if self.canvas is not None:

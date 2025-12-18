@@ -44,6 +44,7 @@ class Transition:
 
 #Représente un arc du réseau de Petri (condition du poid positif).
 @dataclass
+
 class Arc:
     source_id: str
     target_id: str
@@ -51,7 +52,7 @@ class Arc:
 
     def __post_init__(self) -> None:
         if self.weight <= 0:
-            raise ValueError("Le poids d'un arc doit être strictement positif")
+            raise ValueError("Erreur, le poids d'un arc doit être strictement positif")
 
 
 
@@ -239,6 +240,62 @@ class PetriNet:
             "deadlocks": deadlocks,
             "truncated": False,
         }
+    
+    """
+    def reachability_dfs(self, max_states: int = 10000) -> Dict[str, object]:
+        if max_states <= 0:
+            raise ValueError("max_states doit être > 0")
+
+        order = self.place_order()
+        m0 = self.initial_marking()
+        k0 = self.marking_key(m0)
+
+        visited: Dict[Tuple[int, ...], int] = {k0: 0}
+        states: List[Dict[str, int]] = [m0]
+        edges: List[Tuple[int, str, int]] = []
+        stack: List[int] = [0]
+        deadlocks: List[int] = []
+
+        while stack:
+            sid = stack.pop()              # pile → DFS
+            marking = states[sid]
+
+            succ = self.step(marking)
+
+            if len(succ) == 0:
+                deadlocks.append(sid)
+
+            for tid, new_marking in succ:
+                key = self.marking_key(new_marking)
+
+                if key in visited:
+                    to_id = visited[key]
+                else:
+                    if len(states) >= max_states:
+                        return {
+                            "place_order": order,
+                            "states": states,
+                            "edges": edges,
+                            "deadlocks": deadlocks,
+                            "truncated": True,
+                        }
+
+                    to_id = len(states)
+                    visited[key] = to_id
+                    states.append(new_marking)
+                    stack.append(to_id)
+
+                edges.append((sid, tid, to_id))
+
+        return {
+            "place_order": order,
+            "states": states,
+            "edges": edges,
+            "deadlocks": deadlocks,
+            "truncated": False,
+        }
+        """
+
 
 
     # Analyse 
